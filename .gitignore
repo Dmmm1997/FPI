@@ -1,0 +1,5 @@
+checkpoints/*
+*.zip
+data/*
+*.pth
+pretrain_model/
