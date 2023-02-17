@@ -37,6 +37,7 @@ def get_parse():
     parser.add_argument('--num_epochs', default=16, type=int, help='')
     parser.add_argument('--save_epochs', default=2, type=int, help='')
     parser.add_argument('--log_iter', default=50, type=int, help='')
+    parser.add_argument('--centerR', default=1, type=int, help='')
     parser.add_argument('--UAVhw', default=112, type=int, help='')
     parser.add_argument('--Satellitehw', default=400, type=int, help='')
     parser.add_argument('--backbone', default="Pvt-T", type=str, help='')
