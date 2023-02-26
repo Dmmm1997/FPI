@@ -9,7 +9,7 @@ from torch.cuda.amp import GradScaler
 import torch.backends.cudnn as cudnn
 import time
 from optimizers.make_optimizer import make_optimizer
-from models.model import make_model
+from models.taskflow import make_model
 from datasets.make_dataloader import make_dataset
 from tool.utils_server import save_network, copyfiles2checkpoints,get_logger
 from tool.evaltools import evaluate
@@ -28,9 +28,10 @@ def get_parse():
     parser = argparse.ArgumentParser(description='Training')
     parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
     parser.add_argument('--name', default="test", type=str, help='output model name')
-    parser.add_argument('--data_dir', default='/home/dmmm/FPI', type=str, help='training dir path')
+    parser.add_argument('--train_dir', default='/media/dmmm/4T-3/DataSets/FPI/FPI2023/train', type=str, help='training dir path')
+    parser.add_argument('--val_dir', default='/media/dmmm/4T-3/DataSets/FPI/FPI2023/val', type=str, help='training dir path')
     parser.add_argument('--num_worker', default=0, type=int, help='')
-    parser.add_argument('--batchsize', default=16, type=int, help='batchsize')
+    parser.add_argument('--batchsize', default=8, type=int, help='batchsize')
     parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
     parser.add_argument('--lr', default=0.00005, type=float, help='learning rate')
     parser.add_argument('--autocast', action='store_true', default=True, help='use mix precision')
@@ -38,14 +39,18 @@ def get_parse():
     parser.add_argument('--save_epochs', default=2, type=int, help='')
     parser.add_argument('--log_iter', default=50, type=int, help='')
     parser.add_argument('--centerR', default=1, type=int, help='')
-    parser.add_argument('--UAVhw', default=112, type=int, help='')
+    parser.add_argument('--UAVhw', default=128, type=int, help='')
     parser.add_argument('--Satellitehw', default=400, type=int, help='')
     parser.add_argument('--backbone', default="Pvt-T", type=str, help='')
+    parser.add_argument('--neck', default="CCN", type=str, help='')
+    parser.add_argument('--head', default="MultiGroupFusionHead", type=str, help='')
+    parser.add_argument('--head_pool', default="avg", type=str, help='')
     parser.add_argument('--padding', default=0, type=float, help='the times of padding for the image size')
     parser.add_argument('--share', default=0, type=int, help='the times of padding for the image size')
     parser.add_argument('--steps', default=[11,15], type=int, help='the times of padding for the image size')
-    parser.add_argument('--checkpoints', default="", type=str, help='the times of padding for the image size')
+    parser.add_argument('--checkpoint', default="", type=str, help='the times of padding for the image size')
     parser.add_argument('--neg_weight', default=15.0, type=float, help='the times of padding for the image size')
+    parser.add_argument('--debug', default=1, type=int, help='the times of padding for the image size')
     opt = parser.parse_args()
     opt.UAVhw = [opt.UAVhw,opt.UAVhw]
     opt.Satellitehw = [opt.Satellitehw,opt.Satellitehw]
@@ -63,7 +68,7 @@ def setup_seed(seed):
 def train_model(model, opt,  dataloaders, dataset_sizes):
     use_gpu = opt.use_gpu
     num_epochs = opt.num_epochs
-    logger = get_logger("./checkpoints/{}/train.log".format(opt.name))
+    logger = get_logger("checkpoints/{}/train.log".format(opt.name))
 
     since = time.time()
     warm_up = 0.1  # We start from the 0.1*lrRate
@@ -86,11 +91,11 @@ def train_model(model, opt,  dataloaders, dataset_sizes):
         iter_loc_loss = 0.0
         iter_start = time.time()
         iter_loss = 0
-
+        total_iters = len(dataloaders["train"])
         # train
         for iter, (z, x, ratex, ratey) in enumerate(dataloaders["train"]):
             now_batch_size, _, _, _ = z.shape
-            total_iters = len(dataloaders["train"])
+            
             if now_batch_size < opt.batchsize:  # skip the last batch
                 continue
             if use_gpu:
@@ -103,7 +108,9 @@ def train_model(model, opt,  dataloaders, dataset_sizes):
             optimizer.zero_grad()
 
             # forward
+            # start_time = time.time()
             outputs = model(z, x)  # satellite and drone
+            # print("model_time:{}".format(time.time()-start_time))
             cls_loss, loc_loss = criterion(outputs, [ratex, ratey])
             loc_loss = loc_loss
             loss = cls_loss + loc_loss
@@ -113,7 +120,7 @@ def train_model(model, opt,  dataloaders, dataset_sizes):
                 loss_backward = warm_up*loss
             else:
                 loss_backward = loss
-
+            # start_time = time.time()
             if opt.autocast:
                 scaler.scale(loss_backward).backward()
                 scaler.step(optimizer)
@@ -121,6 +128,7 @@ def train_model(model, opt,  dataloaders, dataset_sizes):
             else:
                 loss_backward.backward()
                 optimizer.step()
+            # print("loss_backward_time:{}".format(time.time()-start_time))
 
             # statistics
             running_loss += loss.item() * now_batch_size
@@ -136,8 +144,7 @@ def train_model(model, opt,  dataloaders, dataset_sizes):
 
                 lr_backbone = optimizer.state_dict()['param_groups'][0]['lr']
 
-                logger.info("[{}/{}] loss: {:.4f} cls_loss: {:.4f} loc_loss:{:.4f} lr_backbone:{:.6f}"
-                            "time:{:.0f}m {:.0f}s ".format(iter + 1,
+                logger.info("[{}/{}] loss: {:.4f} cls_loss: {:.4f} loc_loss:{:.4f} lr_backbone:{:.6f} time:{:.0f}m {:.0f}s ".format(iter + 1,
                                                           total_iters,
                                                           iter_loss,
                                                           iter_cls_loss,
@@ -237,8 +244,8 @@ if __name__ == '__main__':
     dataloaders_val = make_dataset(opt,train=False)
     dataloaders = {"train":dataloaders_train,
                     "val":dataloaders_val}
-
-    model = make_model(opt,pretrain=True)
+    
+    model = make_model(opt)
 
     model = model.cuda()
     # 移动文件到指定文件夹

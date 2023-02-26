@@ -40,9 +40,11 @@ def copy_file_or_tree(path,target_dir):
          copyfile(path,target_path)
 
 def copyfiles2checkpoints(opt):
-    dir_name = os.path.join('./checkpoints', opt.name)
-    if not os.path.isdir(dir_name):
-        os.mkdir(dir_name)
+    dir_name = os.path.join('checkpoints', opt.name)
+    if opt.debug!=1:
+        if os.path.exists(dir_name):
+            raise NameError("{} 已经存在请更换name参数或者删除chekcpoint！！！".format(dir_name))
+    os.makedirs(dir_name,exist_ok=True)
     # record every run
     copy_file_or_tree('train.py',dir_name)
     copy_file_or_tree('test_server.py',dir_name)

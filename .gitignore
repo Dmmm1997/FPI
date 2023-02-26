@@ -3,3 +3,7 @@ checkpoints/*
 data/*
 *.pth
 pretrain_model/
+pytorch-image-models/
+*.pyc
+*/__pycache__/*
+timm/

@@ -4,8 +4,8 @@ import os
 import glob
 from tqdm import tqdm
 from get_property import find_GPS_image
-import json
 from multiprocessing import Pool
+import sys
 
 # from center crop image
 def center_crop_and_resize(img,target_size=None):
@@ -23,6 +23,10 @@ def center_crop_and_resize(img,target_size=None):
         new_image = cv2.resize(new_image,target_size)
 
     return new_image
+
+
+def resize(img,target_size):
+    return cv2.resize(img, target_size)
 
 def sixNumber(str_number):
     str_number=str(str_number)
@@ -134,19 +138,23 @@ def CenterCropFromSatellite(Mapimage,Position,mapsize,target_size):
 
 
 
-def mutiProcess(class_file):
+def mutiProcess(place):
     index = 0
-    dir, map = dirlist[class_file], MapPath[class_file]
-    images_list = glob.glob(os.path.join(dir, "*/*.JPG"))
-    # place name
-    place = dir.split("/")[-1]
+    map_dir_2022 = os.path.join(train_source_path, "new_tif", place+".tif")
+    map_dir_2019 = os.path.join(train_source_path, "old_tif", place+".tif")
+
     # satellite map image
-    map_image = cv2.imread(map)
-    map_h_, map_w_, _ = map_image.shape
-    map_image = cv2.resize(map_image,(map_w_//2,map_h_//2), interpolation=3)
-    map_h, map_w, _ = map_image.shape
-    cur_TN, cur_TE, cur_BN, cur_BE = map_position_dict[place]
-    for JPG in tqdm(images_list):
+    map_image_2022 = cv2.imread(map_dir_2022)
+    map_h_2022,map_w_2022 = map_image_2022.shape[:2]
+    
+    map_image_2019 = cv2.imread(map_dir_2019)
+    map_h_2019,map_w_2019 = map_image_2019.shape[:2]
+    
+    # Drone image list
+    images_list = glob.glob(os.path.join(train_source_path,"University_UAV_Images", place, "*/*.JPG"))
+    cur_TN_2022, cur_TE_2022, cur_BN_2022, cur_BE_2022 = map_position_dict_2022[place]
+    cur_TN_2019, cur_TE_2019, cur_BN_2019, cur_BE_2019 = map_position_dict_2019[place]
+    for JPG in tqdm(images_list,desc="{}".format(place)):
         # image
         image = cv2.imread(JPG)
         uav_h, uav_w, _ = image.shape
@@ -155,10 +163,15 @@ def mutiProcess(class_file):
         y = list(list(GPS_info.values())[0].values())
         E, N = y[3], y[1]
         # compute the corresponding position of the big satellite image
-        centerX = (E - cur_TE) / (cur_BE - cur_TE) * map_w
-        centerY = (N - cur_TN) / (cur_BN - cur_TN) * map_h
+        centerX_2019 = (E - cur_TE_2019) / (cur_BE_2019 - cur_TE_2019) * map_w_2019
+        centerY_2019 = (N - cur_TN_2019) / (cur_BN_2019 - cur_TN_2019) * map_h_2019
+
+        centerX_2022 = (E - cur_TE_2022) / (cur_BE_2022 - cur_TE_2022) * map_w_2022
+        centerY_2022 = (N - cur_TN_2022) / (cur_BN_2022 - cur_TN_2022) * map_h_2022
+
         # center crop and resize the UAV image
-        croped_image = center_crop_and_resize(image, target_size=(512, 512))
+        # croped_image = center_crop_and_resize(image, target_size=(512, 512))
+        croped_image = resize(image, target_size=(1440, 1080))
         # create target related dir
         fileClassIndex = sixNumber(index)
         fileClassIndex = "{}_{}".format(place,fileClassIndex)
@@ -177,33 +190,29 @@ def mutiProcess(class_file):
         UAV_target_path = os.path.join(fileClassDirUAV, "0.JPG")
         cv2.imwrite(UAV_target_path, croped_image)
         # crop the corresponding part of the satellite map
-        croped_satellite_image = CenterCropFromSatellite(map_image,Position=(centerX,centerY),mapsize=2000, target_size=(1280, 1280))
-        Satellite_target_path = os.path.join(fileClassDirSatellite, "0.tif")
-        cv2.imwrite(Satellite_target_path, croped_satellite_image)
+        croped_satellite_image_2019 = CenterCropFromSatellite(map_image_2019,Position=(centerX_2019,centerY_2019),mapsize=4000, target_size=(1280, 1280))
+        croped_satellite_image_2022 = CenterCropFromSatellite(map_image_2022,Position=(centerX_2022,centerY_2022),mapsize=4000, target_size=(1280, 1280))
+        Satellite_target_path_2019 = os.path.join(fileClassDirSatellite, "2019.tif")
+        Satellite_target_path_2022 = os.path.join(fileClassDirSatellite, "2022.tif")
+        cv2.imwrite(Satellite_target_path_2019, croped_satellite_image_2019)
+        cv2.imwrite(Satellite_target_path_2022, croped_satellite_image_2022)
+        index+=1
 
-        index += 1
 
 if __name__ == '__main__':
     # source path
     root = "/media/dmmm/4T-3/DataSets/DenseCV_Data/高度数据集/"
-    train_source_path = os.path.join(root, "oridata", "test")
+    train_source_path = os.path.join(root, "oridata", "train")
     # target path
-    SiamUAV_root = "/media/dmmm/4T-3/DataSets/FPI/GPS_info"
-    # SiamUAV_train_dir = os.path.join(SiamUAV_root,"merge_test_500-1500")
-    SiamUAV_train_dir = os.path.join(SiamUAV_root,"merge_test_cjh")
+    SiamUAV_root = "/media/dmmm/4T-3/DataSets/FPI2023/"
+    SiamUAV_train_dir = os.path.join(SiamUAV_root,"train")
     checkAndMkdir(SiamUAV_train_dir)
 
-    dirlist = [i for i in glob.glob(os.path.join(train_source_path, "*")) if os.path.isdir(i)]
-    MapPath = [i + ".tif" for i in dirlist]
-    for i in MapPath:
-        if not os.path.exists(i):
-            raise NameError("name is not corresponding!")
-    position_info_path = os.path.join(train_source_path, "PosInfo.txt")
-    map_position_dict = getMapPosition(position_info_path)
-
-    # muti-process
-    P = Pool(processes=4)
-    P.map(func=mutiProcess, iterable=range(len(MapPath)))
-    # single process
-    # for i in range(len(MapPath)):
-    #     mutiProcess(i)
+    dirlist = os.listdir(os.path.join(train_source_path, "University_UAV_Images"))
+    # 获取map对应的GPS信息
+    map_position_dict_2022 = getMapPosition(os.path.join(train_source_path, "new_tif","PosInfo.txt"))
+    map_position_dict_2019 = getMapPosition(os.path.join(train_source_path, "old_tif","PosInfo.txt"))
+    
+    P = Pool(processes=5)
+    P.map(mutiProcess,dirlist)
+    P.close()

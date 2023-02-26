@@ -3,17 +3,17 @@ from torch.optim import lr_scheduler
 
 
 def make_optimizer(model,opt):
-    # ignored_params = []
-    # for i in [model.model_uav,model.model_satellite]:
-    #     ignored_params += list(map(id, i.transformer.parameters()))
-    # extra_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
-    # base_params = filter(lambda p: id(p) in ignored_params, model.parameters())
-    # optimizer_ft = optim.AdamW([
-    #     {'params': base_params, 'lr': opt.lr},
-    #     {'params': extra_params, 'lr': opt.lr}],
-    #     weight_decay=5e-4)
+    ignored_params = []
+    for i in [model.backbone_uav,model.backbone_satellite]:
+        ignored_params += list(map(id, i.parameters()))
+    extra_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
+    base_params = filter(lambda p: id(p) in ignored_params, model.parameters())
+    optimizer_ft = optim.AdamW([
+        {'params': base_params, 'lr': opt.lr},
+        {'params': extra_params, 'lr': opt.lr}],
+        weight_decay=5e-4)
 
-    optimizer_ft = optim.AdamW(model.parameters(),lr=opt.lr, weight_decay=5e-4)
+    # optimizer_ft = optim.AdamW(model.parameters(),lr=opt.lr, weight_decay=5e-4)
 
     # optimizer_ft = optim.SGD(model.parameters(), lr=opt.lr , weight_decay=5e-4, momentum=0.9, nesterov=True)
 

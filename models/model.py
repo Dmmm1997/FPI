@@ -1,23 +1,26 @@
 import torch.nn as nn
 from .FSRA.make_model import make_transformer_model, make_cnn_model
-from .head import SiamFC_HEAD,FeatureFusion,SiamRPN_HEAD,SwinTrack
+from .head import SiamFC_HEAD, FeatureFusion, SiamRPN_HEAD, SwinTrack
 import numpy as np
 # from .SwinTrack.network import SwinTrack
 import torch
 from tool.networktools import init_weights
 
 
-Transformer_model_list = ["Deit-S", "Vit-S", "Swin-Transformer-S","Pvt-T","Pvt-S"]
-CNN_model_list = ["Resnet50", "Resnest50","VAN-S"]
+Transformer_model_list = ["Deit-S", "Vit-S",
+                          "Swin-Transformer-S", "Pvt-T", "Pvt-S"]
+CNN_model_list = ["Resnet50", "Resnest50", "VAN-S"]
 
 
 class SiamUAV_Transformer_Model(nn.Module):
     def __init__(self, opt):
         super(SiamUAV_Transformer_Model, self).__init__()
         backbone = opt.backbone
-        self.model_uav = make_transformer_model(opt,opt.UAVhw, transformer_name=backbone)
+        self.model_uav = make_transformer_model(
+            opt, opt.UAVhw, transformer_name=backbone)
         if not opt.share:
-            self.model_satellite = make_transformer_model(opt,opt.Satellitehw, transformer_name=backbone)
+            self.model_satellite = make_transformer_model(
+                opt, opt.Satellitehw, transformer_name=backbone)
         else:
             self.model_satellite = self.model_uav
 
@@ -38,8 +41,8 @@ class SiamUAV_Transformer_Model(nn.Module):
         # # if self.opt.padding:
         # #     a_z = self.get_part(a_z, self.opt.padding)
         # # # cls
-        cls = self.head(z,x)
-        return cls,None
+        cls = self.head(z, x,cnn=True)
+        return cls, None
 
         # swintrack head
         # cls = self.head(z, x)
@@ -49,7 +52,6 @@ class SiamUAV_Transformer_Model(nn.Module):
         # featurefusion
         # map = self.head(z,x)
         # map = self.vector2array(map)
-
 
     def vector2array(self, vector):
         n, p, c = vector.shape
@@ -73,22 +75,23 @@ class SiamUAV_Transformer_Model(nn.Module):
     def load_params(self, opt):
         # load pretrain param
         if opt.backbone == "Vit-S":
-            pretrain = "pretrain_model/vit_small_p16_224-15ec54c9.pth"
+            pretrain = "/media/dmmm/4T-3/demo/SiamUAV/pretrain_model/vit_small_p16_224-15ec54c9.pth"
         if opt.backbone == "Deit-S":
-            pretrain = "pretrain_model/deit_small_distilled_patch16_224-649709d9.pth"
+            pretrain = "/media/dmmm/4T-3/demo/SiamUAV/pretrain_model/deit_small_distilled_patch16_224-649709d9.pth"
         if opt.backbone == "Swin-Transformer-S":
-            pretrain = "pretrain_model/swin_small_patch4_window7_224.pth"
+            pretrain = "/media/dmmm/4T-3/demo/SiamUAV/pretrain_model/swin_small_patch4_window7_224.pth"
         if opt.backbone == "Pvt-T":
-            pretrain = "pretrain_model/pvt_tiny.pth"
+            pretrain = "/media/dmmm/4T-3/demo/SiamUAV/pretrain_model/pvt_tiny.pth"
         if opt.backbone == "Pvt-S":
-            pretrain = "pretrain_model/pvt_small.pth"
+            pretrain = "/media/dmmm/4T-3/demo/SiamUAV/pretrain_model/pvt_small.pth"
         self.model_uav.transformer.load_param(pretrain)
         if not opt.share:
             self.model_satellite.transformer.load_param(pretrain)
-        if opt.checkpoints:
-            pretran_model = torch.load(opt.checkpoints)
+        if opt.checkpoint:
+            pretran_model = torch.load(opt.checkpoint)
             model2_dict = self.state_dict()
-            state_dict = {k: v for k, v in pretran_model.items() if k in model2_dict.keys()}
+            state_dict = {k: v for k, v in pretran_model.items()
+                          if k in model2_dict.keys()}
             model2_dict.update(state_dict)
             self.load_state_dict(model2_dict)
 
@@ -110,11 +113,10 @@ class SiamUAV_CNN_Model(nn.Module):
         else:
             x = self.model_satellite(x)
         map = self.head(z, x, cnn=True)
-        return map,None
+        return map, None
 
 
-
-def make_model(opt, pretrain=False):
+def make_model(opt, pretrain=True):
     if opt.backbone in Transformer_model_list:
         model = SiamUAV_Transformer_Model(opt)
         if pretrain:

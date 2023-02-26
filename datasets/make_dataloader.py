@@ -4,7 +4,7 @@ from .SiamUAV import SiamUAVCenter,SiamUAV_val
 
 def make_dataset(opt,train=True):
     if train:
-        image_datasets = SiamUAVCenter(opt.data_dir,opt)
+        image_datasets = SiamUAVCenter(opt)
         dataloaders =torch.utils.data.DataLoader(image_datasets,
                                                  batch_size=opt.batchsize,
                                                  shuffle=True,
@@ -16,7 +16,7 @@ def make_dataset(opt,train=True):
         return dataloaders, dataset_sizes
 
     else:
-        dataset_test = SiamUAV_val(opt.data_dir, opt,mode="val")
+        dataset_test = SiamUAV_val(opt)
         dataloaders = torch.utils.data.DataLoader(dataset_test,
                                                   batch_size=1,
                                                   shuffle=True,

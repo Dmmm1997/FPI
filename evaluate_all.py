@@ -59,7 +59,7 @@ def main():
 
         satellite_h_meter = latlog2meter(Satellite_GPS_info[0],Satellite_GPS_info[1],Satellite_GPS_info[0],Satellite_GPS_info[3])
         satellite_w_meter = latlog2meter(Satellite_GPS_info[0],Satellite_GPS_info[1],Satellite_GPS_info[2],Satellite_GPS_info[1])
-        mapsize2meter[mapsize].append([satellite_h_meter,satellite_w_meter])
+        mapsize2meter[mapsize].append([satellite_h_meter, satellite_w_meter])
         # print(satellite_w_meter,satellite_h_meter)
         # print(satellite_h_meter*satellite_w_meter)
         areas.append(satellite_h_meter*satellite_w_meter)

@@ -8,7 +8,7 @@ import time
 from torch.nn.functional import sigmoid
 import yaml
 import warnings
-from models.model import make_model
+from models.taskflow import make_model
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -20,23 +20,26 @@ warnings.filterwarnings("ignore")
 
 def get_opt():
     parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--test_data_dir', default='/home/dmmm/FPI', type=str, help='training dir path')
+    parser.add_argument('--test_dir', default='/home/dmmm/Dataset/FPI/FPI2023/test', type=str, help='training dir path')
     parser.add_argument('--num_worker', default=4, type=int, help='')
-    parser.add_argument('--checkpoint', default="net_014.pth", type=str, help='')
+    parser.add_argument('--checkpoint', default="net_016.pth", type=str, help='')
     parser.add_argument('--k', default=10, type=int, help='')
     parser.add_argument('--filterR', default=1, type=int, help='')
     parser.add_argument('--savename', default="result1.txt", type=str, help='')
     parser.add_argument('--GPS_output_filename', default="GPS_pred_gt.json", type=str, help='')
+    parser.add_argument('--mode', default="2019_2022_satellitemap_700-1800_cr0.9_stride100", type=str, help='')
     opt = parser.parse_args()
     config_path = 'opts.yaml'
     with open(config_path, 'r') as stream:
         config = yaml.load(stream)
-    opt.UAVhw = config["UAVhw"]
-    opt.Satellitehw = config["Satellitehw"]
-    opt.share = config["share"]
-    opt.backbone = config["backbone"]
-    opt.padding = config["padding"]
-    opt.centerR = config["centerR"]
+    for cfg,value in config.items():
+        setattr(opt,cfg,value)
+    # opt.UAVhw = config["UAVhw"]
+    # opt.Satellitehw = config["Satellitehw"]
+    # opt.share = config["share"]
+    # opt.backbone = config["backbone"]
+    # opt.padding = config["padding"]
+    # opt.centerR = config["centerR"]
     return opt
 
 
@@ -46,6 +49,7 @@ def create_hanning_mask(center_R):
         np.hanning(center_R+2))
     hann_window /= hann_window.sum()
     return hann_window[1:-1,1:-1]
+
 
 def create_model(opt):
     model = make_model(opt)
@@ -57,7 +61,7 @@ def create_model(opt):
 
 
 def create_dataset(opt):
-    dataset_test = SiamUAV_test(opt.test_data_dir, opt)
+    dataset_test = SiamUAV_test(opt)
     dataloaders = torch.utils.data.DataLoader(dataset_test,
                                               batch_size=1,
                                               shuffle=False,
@@ -74,6 +78,7 @@ def evaluate(opt, pred_XY, label_XY):
     distance = np.sqrt((np.square(x_rate) + np.square(y_rate)) / 2)  # take the distance to the 0-1
     result = np.exp(-1 * opt.k * distance)
     return result
+
 
 def euclideanDistance(query, gallery):
     query = np.array(query, dtype=np.float32)
@@ -126,6 +131,7 @@ def SDM_evaluate_score(opt,UAV_GPS,Satellite_INFO,UAV_image_path,Satellite_image
     SDM_single_score = SDM_evaluateSingle(distance, 1)
     return SDM_single_score
 
+
 GPS_output_list = []
 def test(model, dataloader, opt):
     total_score = 0.0
@@ -133,7 +139,7 @@ def test(model, dataloader, opt):
     flag_bias = 0
     start_time = time.time()
     SDM_scores = 0
-    for uav, satellite, X, Y, UAV_image_path,Satellite_image_path, UAV_GPS,Satellite_INFO in tqdm(dataloader):
+    for uav, satellite, X, Y, UAV_image_path, Satellite_image_path, UAV_GPS, Satellite_INFO in tqdm(dataloader):
         z = uav.cuda()
         x = satellite.cuda()
         response, loc_bias = model(z, x)

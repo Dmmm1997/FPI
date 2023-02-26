@@ -4,9 +4,6 @@ import torch.nn.functional as F
 from functools import partial
 
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-from timm.models.registry import register_model
-from timm.models.vision_transformer import _cfg
-
 
 
 class Mlp(nn.Module):
@@ -217,7 +214,7 @@ class PyramidVisionTransformer(nn.Module):
             x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
             outs.append(x)
 
-        return outs[2]
+        return outs
 
     def forward(self, x):
         x = self.forward_features(x)
