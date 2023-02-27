@@ -16,7 +16,7 @@ from collections import OrderedDict
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
-        out_features = out_features or in_features
+        out_features = out_features or in_features 
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
         self.act = act_layer()
@@ -267,6 +267,13 @@ class PyramidVisionTransformer(nn.Module):
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
+    
+    def load_param(self,checkpoint):
+        pretran_model = torch.load(checkpoint)
+        model2_dict = self.state_dict()
+        state_dict = {k: v for k, v in pretran_model.items() if k in model2_dict.keys()}
+        model2_dict.update(state_dict)
+        self.load_state_dict(model2_dict)
 
     def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):
@@ -396,7 +403,7 @@ class CPVTV2(PyramidVisionTransformer):
         # if self.F4:
         #     x = x[3:4]
 
-        return x[0:3]
+        return x
 
 
 class PCPVT(CPVTV2):
@@ -502,16 +509,13 @@ class alt_gvt_large(ALTGVT):
 
 
 class pcpvt_small(CPVTV2):
-    def __init__(self, **kwargs):
+    def __init__(self, pretrained = False, **kwargs):
         super(pcpvt_small, self).__init__(
             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
             drop_rate=0.0, drop_path_rate=0.2)
-
-    def load_param(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
+        if pretrained:
+            self.load_param("/home/dmmm/VscodeProject/FPI/pretrain_model/pcpvt_small.pth")
 
 
 class pcpvt_base(CPVTV2):

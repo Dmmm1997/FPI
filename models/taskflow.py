@@ -19,7 +19,8 @@ class FPI(nn.Module):
         
         # neck init
         opt.neck_output_channel = self.backbone_uav.backbone_out_channel[0]
-        self.neck = make_neck(opt)
+        self.neck_uav = make_neck(opt)
+        self.neck_satellite = make_neck(opt)
 
         # head init
         opt.nums_head_input = len(self.backbone_uav.backbone_out_channel)
@@ -34,8 +35,8 @@ class FPI(nn.Module):
         # print("backbone_time:{}".format(time.time()-start_time))
         # start_time = time.time()
         # neck forward
-        neck_z = self.neck(z)
-        neck_x = self.neck(x)
+        neck_z = self.neck_uav(z)
+        neck_x = self.neck_satellite(x)
         # print("neck_time:{}".format(time.time()-start_time))
         # start_time = time.time()
         # head forward

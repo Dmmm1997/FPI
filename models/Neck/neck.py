@@ -7,6 +7,7 @@ import timm
 from .fpn import FPN
 from .pafpn import PAFPN
 from .channel_convert import CCN
+from .fpn_cjh import PyramidFeatures
 
 
 
@@ -24,7 +25,8 @@ class Neck(nn.Module):
         
     def init_neck(self, opt):
         if opt.neck=="FPN":
-            neck_model = FPN(opt.backbone_output_channel,opt.neck_output_channel,len(opt.backbone_output_channel))
+            # neck_model = FPN(opt.backbone_output_channel[:3],opt.neck_output_channel,len(opt.backbone_output_channel))
+            neck_model = PyramidFeatures(opt.backbone_output_channel, opt.neck_output_channel)
         elif opt.neck=="PAFPN":
             neck_model = PAFPN(opt.backbone_output_channel,opt.neck_output_channel,len(opt.backbone_output_channel))
         elif opt.neck=="CCN":

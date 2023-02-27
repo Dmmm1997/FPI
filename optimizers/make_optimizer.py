@@ -9,7 +9,7 @@ def make_optimizer(model,opt):
     extra_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     base_params = filter(lambda p: id(p) in ignored_params, model.parameters())
     optimizer_ft = optim.AdamW([
-        {'params': base_params, 'lr': opt.lr},
+        {'params': base_params, 'lr': 0.3*opt.lr},
         {'params': extra_params, 'lr': opt.lr}],
         weight_decay=5e-4)
 
@@ -18,6 +18,7 @@ def make_optimizer(model,opt):
     # optimizer_ft = optim.SGD(model.parameters(), lr=opt.lr , weight_decay=5e-4, momentum=0.9, nesterov=True)
 
     exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=opt.steps, gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.CosineAnnealingLR(optimizer_ft, T_max=opt.num_epochs, eta_min=opt.lr*0.001)
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=80, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.ExponentialLR(optimizer_ft, gamma=0.9)
     # exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer_ft, mode='min', factor=0.5, patience=4, verbose=True,threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=1e-5, eps=1e-08)
